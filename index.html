@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#25313a" />
+  <title>Amir Task Manager</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="office">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">A</div>
+        <div>
+          <h1>AMIR TASK MANAGER</h1>
+          <p>Personal + Office • Offline-first</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="themeBtn" title="Change theme">◐</button>
+        <button class="icon-btn" id="backupBtn" title="Backup">⇩</button>
+        <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Main navigation">
+      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="calendar">Calendar</button>
+      <button class="tab" data-view="tasks">Tasks</button>
+      <button class="tab" data-view="reports">Reports</button>
+    </nav>
+
+    <main>
+      <section class="view active" id="dashboardView">
+        <div class="toolbar">
+          <select id="dashboardArea">
+            <option value="All">All</option>
+            <option value="Office">Office</option>
+            <option value="Personal">Personal</option>
+          </select>
+          <div class="date-chip" id="todayChip"></div>
+        </div>
+
+        <div class="hero-card">
+          <div>
+            <span class="eyebrow">Today</span>
+            <h2 id="heroGreeting">Your day at a glance</h2>
+            <p id="heroSummary">0 tasks scheduled</p>
+          </div>
+          <button class="primary" id="quickAddBtn">＋ Add Task</button>
+        </div>
+
+        <div class="kpi-grid">
+          <button class="kpi-card" data-filter="today">
+            <span>Today</span><strong id="kpiToday">0</strong><small>due today</small>
+          </button>
+          <button class="kpi-card danger" data-filter="overdue">
+            <span>Overdue</span><strong id="kpiOverdue">0</strong><small>need attention</small>
+          </button>
+          <button class="kpi-card success" data-filter="complete">
+            <span>Complete</span><strong id="kpiComplete">0</strong><small>finished</small>
+          </button>
+          <button class="kpi-card warning" data-filter="progress">
+            <span>In Progress</span><strong id="kpiProgress">0</strong><small>active</small>
+          </button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h3>Overall Progress</h3>
+            <strong id="progressPct">0%</strong>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h3>Today’s Priorities</h3>
+            <button class="text-btn" data-jump="tasks">View all</button>
+          </div>
+          <div id="todayList" class="task-list compact"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h3>Frequency Summary</h3></div>
+          <div class="mini-grid">
+            <div><span>Daily</span><strong id="freqDaily">0</strong></div>
+            <div><span>Weekly</span><strong id="freqWeekly">0</strong></div>
+            <div><span>Monthly</span><strong id="freqMonthly">0</strong></div>
+            <div><span>One-Time</span><strong id="freqOneTime">0</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="calendarView">
+        <div class="calendar-toolbar">
+          <button class="icon-btn" id="prevMonthBtn">‹</button>
+          <div class="month-title">
+            <select id="monthSelect"></select>
+            <select id="yearSelect"></select>
+          </div>
+          <button class="icon-btn" id="nextMonthBtn">›</button>
+        </div>
+
+        <div class="toolbar">
+          <select id="calendarArea">
+            <option value="All">All</option>
+            <option value="Office">Office</option>
+            <option value="Personal">Personal</option>
+          </select>
+          <button class="secondary" id="goTodayBtn">Today</button>
+        </div>
+
+        <div class="calendar-card">
+          <div class="weekday-grid">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <div class="panel selected-day-panel">
+          <div class="panel-title">
+            <div>
+              <span class="eyebrow">Selected date</span>
+              <h3 id="selectedDateTitle">Select a date</h3>
+            </div>
+            <button class="primary small" id="addForDateBtn">＋ Task</button>
+          </div>
+          <div id="selectedDateTasks" class="task-list compact"></div>
+        </div>
+      </section>
+
+      <section class="view" id="tasksView">
+        <div class="search-row">
+          <input type="search" id="taskSearch" placeholder="Search tasks, notes, category…" />
+          <button class="primary square" id="taskAddBtn">＋</button>
+        </div>
+
+        <div class="filter-grid">
+          <select id="taskAreaFilter">
+            <option value="All">All areas</option>
+            <option value="Office">Office</option>
+            <option value="Personal">Personal</option>
+          </select>
+          <select id="taskStatusFilter">
+            <option value="All">All status</option>
+            <option>Not Started</option>
+            <option>In Progress</option>
+            <option>Complete</option>
+            <option>Cancelled</option>
+          </select>
+          <select id="taskFreqFilter">
+            <option value="All">All frequency</option>
+            <option>One-Time</option>
+            <option>Daily</option>
+            <option>Weekly</option>
+            <option>Monthly</option>
+          </select>
+          <select id="taskPriorityFilter">
+            <option value="All">All priority</option>
+            <option>Critical</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+
+        <div class="list-header">
+          <span id="taskCountLabel">0 tasks</span>
+          <button class="text-btn" id="clearFiltersBtn">Clear filters</button>
+        </div>
+        <div id="allTasksList" class="task-list"></div>
+      </section>
+
+      <section class="view" id="reportsView">
+        <div class="panel">
+          <div class="panel-title"><h3>Task Distribution</h3></div>
+          <div class="report-grid">
+            <div class="report-card"><span>Office</span><strong id="reportOffice">0</strong></div>
+            <div class="report-card"><span>Personal</span><strong id="reportPersonal">0</strong></div>
+            <div class="report-card"><span>High + Critical</span><strong id="reportHigh">0</strong></div>
+            <div class="report-card"><span>Completed this month</span><strong id="reportMonthDone">0</strong></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h3>Data Tools</h3></div>
+          <div class="button-stack">
+            <button class="secondary" id="exportJsonBtn">Export Backup (.json)</button>
+            <button class="secondary" id="exportCsvBtn">Export Tasks (.csv)</button>
+            <label class="secondary file-label">Import Backup
+              <input type="file" id="importJsonInput" accept=".json,application/json" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h3>Offline Status</h3></div>
+          <p class="muted" id="offlineStatus">Checking…</p>
+          <p class="muted">Your task data is stored locally on this device. Export backups regularly if the data is important.</p>
+        </div>
+      </section>
+    </main>
+
+    <button id="floatingAdd" class="fab" aria-label="Add task">＋</button>
+  </div>
+
+  <!-- Task Modal -->
+  <div class="modal-backdrop hidden" id="taskModalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Task</span>
+          <h2 id="taskModalTitle">Add Task</h2>
+        </div>
+        <button class="icon-btn" id="closeTaskModal">×</button>
+      </div>
+
+      <form id="taskForm">
+        <input type="hidden" id="taskId" />
+        <div class="form-grid two">
+          <label>Date<input type="date" id="taskDate" required /></label>
+          <label>Due Time<input type="time" id="taskTime" /></label>
+        </div>
+        <label>Task Name<input type="text" id="taskName" required placeholder="What needs to be done?" /></label>
+        <div class="form-grid two">
+          <label>Area
+            <select id="taskArea"><option>Office</option><option>Personal</option></select>
+          </label>
+          <label>Category
+            <select id="taskCategory">
+              <option>General</option><option>Import / Export</option><option>Accounts</option>
+              <option>Follow-up</option><option>Meeting</option><option>Family</option>
+              <option>Health</option><option>Shopping</option><option>Payment</option>
+              <option>Documents</option><option>Travel</option><option>Other</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-grid two">
+          <label>Frequency
+            <select id="taskFrequency">
+              <option>One-Time</option><option>Daily</option><option>Weekly</option><option>Monthly</option>
+            </select>
+          </label>
+          <label>Status
+            <select id="taskStatus">
+              <option>Not Started</option><option>In Progress</option><option>Complete</option><option>Cancelled</option>
+            </select>
+          </label>
+        </div>
+        <label>Priority
+          <select id="taskPriority">
+            <option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option>
+          </select>
+        </label>
+        <label>Notes<textarea id="taskNotes" rows="3" placeholder="Optional notes"></textarea></label>
+
+        <div class="modal-actions">
+          <button type="button" class="danger-outline hidden" id="deleteTaskBtn">Delete</button>
+          <div class="grow"></div>
+          <button type="button" class="secondary" id="cancelTaskBtn">Cancel</button>
+          <button type="submit" class="primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop hidden" id="settingsBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Settings</span>
+          <h2>App Preferences</h2>
+        </div>
+        <button class="icon-btn" id="closeSettings">×</button>
+      </div>
+
+      <label>Theme
+        <select id="themeSelect">
+          <option value="office">Office — Charcoal / Steel Blue</option>
+          <option value="personal">Personal — Soft Teal</option>
+          <option value="midnight">Midnight</option>
+          <option value="sand">Warm Sand</option>
+          <option value="violet">Violet</option>
+          <option value="forest">Forest</option>
+        </select>
+      </label>
+
+      <label>Default View
+        <select id="defaultAreaSelect">
+          <option>All</option><option>Office</option><option>Personal</option>
+        </select>
+      </label>
+
+      <label class="check-row">
+        <input type="checkbox" id="confirmDeleteCheck" checked />
+        Confirm before deleting tasks
+      </label>
+
+      <div class="button-stack">
+        <button class="secondary" id="installHelpBtn">How to Install on iPhone</button>
+        <button class="danger-outline" id="clearAllDataBtn">Erase All Tasks</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
