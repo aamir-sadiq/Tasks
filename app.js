@@ -51,6 +51,8 @@ function load(){
 function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tasks));
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  localStorage.setItem("amir_task_local_updated_v1", String(Date.now()));
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 }
 function applyTheme(){
   document.body.dataset.theme = state.settings.theme;
@@ -383,3 +385,173 @@ applyTheme();
 $("dashboardArea").value=state.settings.defaultArea;
 $("calendarArea").value=state.settings.defaultArea;
 renderAll();
+
+
+// =========================================================
+// AUTOMATIC PC <-> IPHONE SYNC (OPTIONAL SUPABASE BACKEND)
+// =========================================================
+const SYNC_CFG_KEY="amir_task_sync_cfg_v1";
+const SYNC_AUTH_KEY="amir_task_sync_auth_v1";
+let syncCfg={url:"",key:"",email:""};
+let syncAuth={access_token:"",refresh_token:"",expires_at:0,user:null};
+let syncPushTimer=null;
+let syncPollTimer=null;
+let syncBusy=false;
+
+function syncLoad(){
+  try{syncCfg={...syncCfg,...JSON.parse(localStorage.getItem(SYNC_CFG_KEY)||"{}")}}catch{}
+  try{syncAuth={...syncAuth,...JSON.parse(localStorage.getItem(SYNC_AUTH_KEY)||"{}")}}catch{}
+}
+function syncStore(){
+  localStorage.setItem(SYNC_CFG_KEY,JSON.stringify(syncCfg));
+  localStorage.setItem(SYNC_AUTH_KEY,JSON.stringify(syncAuth));
+}
+function syncUrl(v){return String(v||"").trim().replace(/\/+$/,"")}
+function syncConnected(){return !!(syncCfg.url&&syncCfg.key&&syncAuth.access_token&&syncAuth.user?.id)}
+function syncHeaders(auth=true){
+  const h={"apikey":syncCfg.key,"Content-Type":"application/json"};
+  if(auth&&syncAuth.access_token)h.Authorization="Bearer "+syncAuth.access_token;
+  return h;
+}
+async function api(path,opts={}){
+  const res=await fetch(syncCfg.url+path,{...opts,headers:{...syncHeaders(opts.auth!==false),...(opts.headers||{})}});
+  const txt=await res.text();let data=null;
+  try{data=txt?JSON.parse(txt):null}catch{data=txt}
+  if(!res.ok)throw new Error(data?.msg||data?.message||data?.error_description||data?.error||("HTTP "+res.status));
+  return data;
+}
+function syncUI(mode=""){
+  if(!$("syncBadge"))return;
+  $("syncProjectUrl").value=syncCfg.url||"";
+  $("syncAnonKey").value=syncCfg.key||"";
+  $("syncEmail").value=syncCfg.email||"";
+  $("syncSignOutBtn").classList.toggle("hidden",!syncConnected());
+
+  const b=$("syncBadge");
+  b.className="sync-badge";
+  if(mode==="syncing"){b.textContent="Syncing…";b.classList.add("syncing")}
+  else if(mode==="error"){b.textContent="Sync error";b.classList.add("error")}
+  else if(syncConnected()&&!navigator.onLine){b.textContent="Offline";b.classList.add("syncing")}
+  else if(syncConnected()){b.textContent="Connected";b.classList.add("online")}
+  else b.textContent="Local only";
+
+  $("syncInfo").textContent=syncConnected()
+    ? `Connected as ${syncCfg.email}. Changes sync automatically when online.`
+    : "Not connected. Data is stored only on this device.";
+}
+async function refreshToken(){
+  if(!syncAuth.refresh_token)return false;
+  try{
+    const d=await api("/auth/v1/token?grant_type=refresh_token",{
+      method:"POST",auth:false,body:JSON.stringify({refresh_token:syncAuth.refresh_token})
+    });
+    syncAuth.access_token=d.access_token;
+    syncAuth.refresh_token=d.refresh_token||syncAuth.refresh_token;
+    syncAuth.expires_at=Math.floor(Date.now()/1000)+(d.expires_in||3600);
+    syncAuth.user=d.user||syncAuth.user;
+    syncStore();return true;
+  }catch{return false}
+}
+async function ensureToken(){
+  if(!syncConnected())return false;
+  if(syncAuth.expires_at-Math.floor(Date.now()/1000)<120)return refreshToken();
+  return true;
+}
+async function connectSync(){
+  syncCfg.url=syncUrl($("syncProjectUrl").value);
+  syncCfg.key=$("syncAnonKey").value.trim();
+  syncCfg.email=$("syncEmail").value.trim();
+  const password=$("syncPassword").value;
+  if(!syncCfg.url||!syncCfg.key||!syncCfg.email||!password){
+    alert("Enter Project URL, Anon Key, Email and Password.");return;
+  }
+  syncUI("syncing");
+  try{
+    const d=await api("/auth/v1/token?grant_type=password",{
+      method:"POST",auth:false,body:JSON.stringify({email:syncCfg.email,password})
+    });
+    syncAuth={access_token:d.access_token,refresh_token:d.refresh_token,
+      expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),user:d.user};
+    syncStore();$("syncPassword").value="";
+    await ensureRow();
+    await syncNow(true);
+    startSyncPolling();
+    syncUI();toast("Automatic sync connected");
+  }catch(e){console.error(e);syncUI("error");alert("Could not connect: "+e.message)}
+}
+async function getRemote(){
+  const uid=syncAuth.user.id;
+  const rows=await api(`/rest/v1/amir_task_sync?user_id=eq.${encodeURIComponent(uid)}&select=payload,updated_at&limit=1`,{method:"GET"});
+  return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+async function ensureRow(){
+  if(!await ensureToken())return;
+  const existing=await getRemote();
+  if(existing)return;
+  const now=new Date().toISOString();
+  await api("/rest/v1/amir_task_sync",{
+    method:"POST",headers:{"Prefer":"return=minimal"},
+    body:JSON.stringify({user_id:syncAuth.user.id,payload:{tasks:state.tasks,settings:state.settings},updated_at:now})
+  });
+  localStorage.setItem("amir_task_local_updated_v1",String(Date.parse(now)));
+}
+async function pushRemote(){
+  if(!syncConnected()||!navigator.onLine)return;
+  if(!await ensureToken())throw new Error("Session expired");
+  const now=new Date().toISOString();
+  await api(`/rest/v1/amir_task_sync?user_id=eq.${encodeURIComponent(syncAuth.user.id)}`,{
+    method:"PATCH",headers:{"Prefer":"return=minimal"},
+    body:JSON.stringify({payload:{tasks:state.tasks,settings:state.settings},updated_at:now})
+  });
+  localStorage.setItem("amir_task_local_updated_v1",String(Date.parse(now)));
+}
+async function syncNow(forcePull=false){
+  if(!syncConnected()||!navigator.onLine||syncBusy)return;
+  syncBusy=true;syncUI("syncing");
+  try{
+    if(!await ensureToken())throw new Error("Session expired");
+    await ensureRow();
+    const remote=await getRemote();
+    if(remote){
+      const rt=Date.parse(remote.updated_at)||0;
+      const lt=Number(localStorage.getItem("amir_task_local_updated_v1")||0);
+      if(forcePull||rt>lt){
+        if(Array.isArray(remote.payload?.tasks))state.tasks=remote.payload.tasks;
+        if(remote.payload?.settings)state.settings={...state.settings,...remote.payload.settings};
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(state.tasks));
+        localStorage.setItem(SETTINGS_KEY,JSON.stringify(state.settings));
+        localStorage.setItem("amir_task_local_updated_v1",String(rt));
+        applyTheme();renderAll();
+      }else if(lt>rt){
+        await pushRemote();
+      }
+    }
+    syncUI();
+  }catch(e){
+    console.error("Sync error",e);syncUI("error");
+    $("syncInfo").textContent="Sync problem: "+e.message+". Local data remains available.";
+  }finally{syncBusy=false}
+}
+function scheduleSyncPush(){
+  if(!syncConnected()||!navigator.onLine)return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer=setTimeout(()=>pushRemote().then(syncUI).catch(e=>{console.error(e);syncUI("error")}),1200);
+}
+function startSyncPolling(){
+  clearInterval(syncPollTimer);
+  if(syncConnected())syncPollTimer=setInterval(()=>syncNow(false),60000);
+}
+function signOutSync(){
+  syncAuth={access_token:"",refresh_token:"",expires_at:0,user:null};
+  syncStore();clearInterval(syncPollTimer);syncUI();toast("Sync signed out");
+}
+
+window.addEventListener("load",()=>{
+  syncLoad();syncUI();startSyncPolling();
+  if(syncConnected()&&navigator.onLine)syncNow(false);
+});
+window.addEventListener("online",()=>{syncUI();if(syncConnected())syncNow(false)});
+window.addEventListener("offline",()=>syncUI());
+$("syncConnectBtn")?.addEventListener("click",connectSync);
+$("syncNowBtn")?.addEventListener("click",()=>syncNow(false));
+$("syncSignOutBtn")?.addEventListener("click",signOutSync);

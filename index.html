@@ -197,6 +197,27 @@
           </div>
         </div>
 
+        
+        <div class="panel">
+          <div class="panel-title">
+            <h3>Automatic Sync</h3>
+            <span class="sync-badge" id="syncBadge">Local only</span>
+          </div>
+          <p class="muted">Connect the same private sync account on PC and iPhone. The app still works offline and synchronizes when internet returns.</p>
+          <div class="sync-grid">
+            <label>Supabase Project URL<input type="url" id="syncProjectUrl" placeholder="https://xxxx.supabase.co"></label>
+            <label>Supabase Anon Key<input type="password" id="syncAnonKey" placeholder="Paste anon public key"></label>
+            <label>Email<input type="email" id="syncEmail" placeholder="your@email.com"></label>
+            <label>Password<input type="password" id="syncPassword" placeholder="Account password"></label>
+          </div>
+          <div class="sync-actions">
+            <button class="primary" id="syncConnectBtn">Sign In / Connect</button>
+            <button class="secondary" id="syncNowBtn">Sync Now</button>
+            <button class="secondary hidden" id="syncSignOutBtn">Sign Out</button>
+          </div>
+          <p class="muted small-text" id="syncInfo">Not connected. Data is stored only on this device.</p>
+        </div>
+
         <div class="panel">
           <div class="panel-title"><h3>Offline Status</h3></div>
           <p class="muted" id="offlineStatus">Checking…</p>

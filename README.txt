@@ -47,3 +47,28 @@ Then:
 DATA
 Tasks are stored in browser localStorage on each device.
 Use Export Backup regularly if the data is important.
+
+
+AUTOMATIC PC <-> IPHONE SYNC
+----------------------------
+This version adds optional private synchronization using your own Supabase project.
+
+SETUP:
+1. Create a Supabase project.
+2. Open SQL Editor and run SUPABASE_SETUP.sql.
+3. In Authentication > Users, create one login for yourself, or enable Email authentication.
+4. In Project Settings / API, copy:
+   - Project URL
+   - anon/public key
+5. Open Amir Task Manager > Reports > Automatic Sync.
+6. Paste Project URL + anon key + your email/password.
+7. Press Sign In / Connect.
+8. On your iPhone, install/open the same PWA and connect with the SAME account.
+
+SYNC BEHAVIOR:
+- Local-first: edits save immediately on the current device.
+- Online changes push automatically after about 1 second.
+- The app checks for newer cloud data every 60 seconds.
+- When internet comes back, sync resumes.
+- Sync Now is available manually.
+- Export Backup remains recommended as an extra safety copy.
